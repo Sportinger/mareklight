@@ -1,56 +1,91 @@
-import os
-import tkinter as tk
+import threading
+from PIL import Image
+import pystray
+from pystray import MenuItem as item
 import subprocess
+import tkinter as tk
+from tkinter import simpledialog
+import time
+
+# Create and hide the root window immediately
+root = tk.Tk()
+root.withdraw()
 
 PING_INTERVAL = 6  # Time between pings in seconds
+update_lock = threading.Lock() 
 
 def ping_ip(ip_address):
     try:
-        output = subprocess.check_output("ping -n 1 -w 500 " + ip_address, shell=True, stderr=subprocess.STDOUT)
-        return True, output.decode(errors='replace')
-    except subprocess.CalledProcessError as e:
-        return False, e.output.decode(errors='replace')
+        process = subprocess.run(["ping", "-n", "1", "-w", "1000", ip_address[0]], capture_output=True, text=True, encoding='cp850', timeout=2)
+        output = process.stdout
+        if "TTL=" in output:
+            return True, output
+        else:
+            return False, output
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        return False, e.output if e.output else ""
 
-def update_window_color(window, ip_address, message_widget):
-    success, output = ping_ip(ip_address)
-    if success:
-        window.config(bg='red')
-        message_widget.config(state='normal')
-        message_widget.insert(tk.END, output)
-        message_widget.config(state='disabled')
-    else:
-        window.config(bg='green')
-        message_widget.config(state='normal')
-        message_widget.insert(tk.END, output)
-        message_widget.config(state='disabled')
-    window.after(2000, lambda: clear_message_widget(message_widget))  # Clear message after 2 seconds
-    if window.timer_id is not None:
-        window.after_cancel(window.timer_id)  # Cancel the previous timer
-    window.timer_id = window.after(PING_INTERVAL * 1000, lambda: update_window_color(window, ip_address, message_widget))  # Set a new timer
+def create_image(color):
+    # Create an image with given background color
+    width = 64
+    height = 64
+    image = Image.new('RGB', (width, height), color)
+    return image
 
-def update_countdown(label):
-    countdown = int(label.cget("text"))
-    countdown -= 1
-    label.config(text=str(countdown))
-    if countdown > 0:
-        label.after(1000, lambda: update_countdown(label))  # Update countdown every second
-    else:
-        label.config(text=str(PING_INTERVAL))  # Reset countdown when it runs out
-        label.after(1000, lambda: update_countdown(label))  # Start countdown again
+def flash_icon_blue(icon):
+    with update_lock:
+        original_icon = icon.icon
+        icon.icon = create_image('blue')
+        time.sleep(0.5)
+        icon.icon = original_icon
 
-def create_window(ip_address):
-    window = tk.Tk()
-    window.title('mareklight')  # Set window title
-    window.geometry('200x200')
-    window.timer_id = None  # Initialize timer_id
-    message_widget = tk.Text(window, height=2, width=30)
-    message_widget.pack(side='top')
-    update_window_color(window, ip_address, message_widget)
-    countdown_label = tk.Label(window, text=str(PING_INTERVAL), bg=window.cget('bg'))
-    countdown_label.pack(side='bottom', anchor='w')
-    update_countdown(countdown_label)
-    window.mainloop()
+def update_tray_icon(icon, ip_address, running):
+    while running[0]:
+        flash_icon_blue(icon)
+        success, _ = ping_ip(ip_address)
+        color = 'green' if success else 'red'
+        icon.icon = create_image(color)
+        time.sleep(PING_INTERVAL)
+
+def set_ip(icon, ip_address, running):
+    # Use the hidden root window for the dialog
+    new_ip = simpledialog.askstring("Enter IP", "Enter new IP address:", parent=root, initialvalue=ip_address[0])
+    if new_ip:
+        ip_address[0] = new_ip
+        flash_icon_blue(icon)
+
+
+
+def update_interval(new_interval):
+    global PING_INTERVAL
+    PING_INTERVAL = new_interval
+
+def create_tray_icon(ip_address, running):
+    # Define a function to update the menu dynamically
+    def update_menu():
+        return pystray.Menu(
+            item('Update Interval', interval_menu),
+            item(f'Enter IP (Current: {ip_address[0]})', lambda: set_ip(icon, ip_address, running)),  # Display the current IP in the menu
+            item('Exit', lambda: icon.stop())  # Add an exit option to the menu
+        )
+
+    interval_menu = pystray.Menu(
+        item('1 sec', lambda: update_interval(1)),
+        item('10 sec', lambda: update_interval(10)),
+        item('1 min', lambda: update_interval(60)),
+        item('10 min', lambda: update_interval(600))
+    )
+    icon = pystray.Icon("mareklight", create_image('red'), "mareklight", menu=update_menu())  # Use update_menu function
+    update_thread = threading.Thread(target=update_tray_icon, args=(icon, ip_address, running))
+    update_thread.start()
+    icon.run()
+    update_thread.join()
+    icon.menu = update_menu()  # U
 
 if __name__ == "__main__":
-    ip_address = '192.168.145.20'  # Replace with your IP address
-    create_window(ip_address)
+    ip_address = ['192.168.146.139']  # Use a list to allow modification
+    running = [True]
+    try:
+        create_tray_icon(ip_address, running)
+    finally:
+        running[0] = False
