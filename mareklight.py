@@ -11,12 +11,15 @@ import time
 root = tk.Tk()
 root.withdraw()
 
-PING_INTERVAL = 6  # Time between pings in seconds
+PING_INTERVAL = 60  # Time between pings in seconds
 update_lock = threading.Lock() 
 
 def ping_ip(ip_address):
     try:
-        process = subprocess.run(["ping", "-n", "1", "-w", "1000", ip_address[0]], capture_output=True, text=True, encoding='cp850', timeout=2)
+        # Set creationflags to CREATE_NO_WINDOW to suppress the console window
+        process = subprocess.run(["ping", "-n", "1", "-w", "1000", ip_address[0]],
+                                 capture_output=True, text=True, encoding='cp850',
+                                 timeout=2, creationflags=subprocess.CREATE_NO_WINDOW)
         output = process.stdout
         if "TTL=" in output:
             return True, output
@@ -66,8 +69,12 @@ def create_tray_icon(ip_address, running):
         return pystray.Menu(
             item('Update Interval', interval_menu),
             item(f'Enter IP (Current: {ip_address[0]})', lambda: set_ip(icon, ip_address, running)),  # Display the current IP in the menu
-            item('Exit', lambda: icon.stop())  # Add an exit option to the menu
+            item('Exit', exit_program)  # Add an exit option to the menu
         )
+
+    def exit_program():
+        running[0] = False
+        icon.stop()
 
     interval_menu = pystray.Menu(
         item('1 sec', lambda: update_interval(1)),
@@ -80,7 +87,6 @@ def create_tray_icon(ip_address, running):
     update_thread.start()
     icon.run()
     update_thread.join()
-    icon.menu = update_menu()  # U
 
 if __name__ == "__main__":
     ip_address = ['192.168.146.139']  # Use a list to allow modification
