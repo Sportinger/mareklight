@@ -9,6 +9,8 @@ import time
 import datetime
 import requests
 import re
+import os  # Add this line
+import sys  # Add this line
 
 # Create and hide the root window immediately
 root = tk.Tk()
@@ -17,6 +19,9 @@ root.withdraw()
 PING_INTERVAL = 60  # Time between pings in seconds
 update_lock = threading.Lock() 
 interval_changed = threading.Event()  # Add this line
+
+def get_executable_path():
+    return os.path.dirname(sys.executable)
 
 def get_latest_version(repo, current_version):
     url = f"https://api.github.com/repos/Sportinger/mareklight/contents/releases/latest"
