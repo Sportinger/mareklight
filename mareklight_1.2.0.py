@@ -7,8 +7,8 @@ import tkinter as tk
 from tkinter import simpledialog
 import time
 import datetime
-
-
+import requests
+import re
 
 # Create and hide the root window immediately
 root = tk.Tk()
@@ -17,6 +17,65 @@ root.withdraw()
 PING_INTERVAL = 60  # Time between pings in seconds
 update_lock = threading.Lock() 
 interval_changed = threading.Event()  # Add this line
+
+def get_latest_version(repo, current_version):
+    url = f"https://api.github.com/repos/Sportinger/mareklight/contents/releases/latest"
+    response = requests.get(url)
+    if response.status_code == 200:
+        files = response.json()
+        if not isinstance(files, list):
+            return None
+        # Assuming there is only one file in this directory
+        if len(files) > 0:
+            return files[0]['name'], files[0]['download_url']
+    return None, None
+
+def download_file(url, filename):
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(filename, 'wb') as file:
+            file.write(response.content)
+        print(f"Downloaded {filename}")
+    else:
+        print("Failed to download the file.")
+
+def parse_version(filename):
+    version_regex = re.compile(r"mareklight_(\d+\.\d+\.\d+)\.exe")
+    match = version_regex.search(filename)
+    return match.group(1) if match else None
+
+# Usage
+repo = "Sportinger/mareklight"
+
+def get_latest_file_info(repo):
+    url = f"https://api.github.com/repos/{repo}/contents/releases/latest"
+    response = requests.get(url)
+    if response.status_code == 200:
+        files = response.json()
+        # Check if the response is a list (it should be for a directory)
+        if not isinstance(files, list):
+            return None
+        # Assuming there is only one file in this directory
+        if len(files) > 0:
+            file_info = files[0]
+            file_name = file_info['name']
+            download_url = file_info['download_url']
+            return file_name, download_url
+    return None, None
+
+
+current_version = '1.0.0'  # Your current app version
+
+filename, download_url = get_latest_file_info(repo)
+if filename:
+    latest_version = parse_version(filename)
+    if latest_version and latest_version > current_version:
+        print(f"New version available: {latest_version}")
+        download_file(download_url, filename)
+    else:
+        print("Running the latest version.")
+else:
+    print("No files found in the latest directory.")
 
 def ping_ip(ip_address):
     try:
