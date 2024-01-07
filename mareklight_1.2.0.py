@@ -20,6 +20,7 @@ PING_INTERVAL = 60  # Time between pings in seconds
 update_lock = threading.Lock() 
 interval_changed = threading.Event()  # Add this line
 
+
 def get_executable_path():
     return os.path.dirname(sys.executable)
 
@@ -69,14 +70,17 @@ def get_latest_file_info(repo):
     return None, None
 
 
-current_version = '1.0.0'  # Your current app version
+current_version = '1.2.0'  # Your current app version
 
 filename, download_url = get_latest_file_info(repo)
 if filename:
     latest_version = parse_version(filename)
     if latest_version and latest_version > current_version:
         print(f"New version available: {latest_version}")
-        download_file(download_url, filename)
+        exe_path = get_executable_path()  # Get the path of the current executable
+        new_file_path = os.path.join(exe_path, filename)
+        download_file(download_url, new_file_path)
+        write_update_batch(exe_path, sys.executable, new_file_path)
     else:
         print("Running the latest version.")
 else:
@@ -102,6 +106,17 @@ def create_image(color):
     height = 64
     image = Image.new('RGB', (width, height), color)
     return image
+
+def write_update_batch(exe_path, old_exe, new_exe):
+    batch_script = os.path.join(exe_path, "update.bat")
+    with open(batch_script, 'w') as bat:
+        bat.write(f'@echo off\n')
+        bat.write(f'timeout /t 5 /nobreak\n')
+        bat.write(f'del "{old_exe}"\n')
+        bat.write(f'rename "{new_exe}" "{os.path.basename(old_exe)}"\n')
+        bat.write(f'start "" "{os.path.basename(old_exe)}"\n')
+        bat.write(f'del "%~f0"&exit\n')
+    subprocess.Popen(batch_script, shell=True)
 
 def flash_icon_blue(icon):
     with update_lock:
@@ -219,7 +234,7 @@ def exit_program(icon, running):
 
 
 if __name__ == "__main__":
-    ip_address = ['192.168.146.139']  
+    ip_address = ['192.168.145.20']  
     running = [True]
     last_change = [datetime.datetime.now()]
     try:
