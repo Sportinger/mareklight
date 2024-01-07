@@ -8,6 +8,8 @@ from tkinter import simpledialog
 import time
 import datetime
 
+current_version = '1.1.0'  # Current version of your app
+
 # Create and hide the root window immediately
 root = tk.Tk()
 root.withdraw()
