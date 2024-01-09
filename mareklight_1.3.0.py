@@ -238,7 +238,7 @@ def exit_program(icon, running):
 
 
 if __name__ == "__main__":
-    ip_address = ['192.168.146.56']  
+    ip_address = ['192.168.145.20']  
     running = [True]
     last_change = [datetime.datetime.now()]
     try:
