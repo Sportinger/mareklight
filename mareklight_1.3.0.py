@@ -11,6 +11,7 @@ import requests
 import re
 import os  # Add this line
 import sys  # Add this line
+from scapy.all import ARP, Ether, srp
 
 # Create and hide the root window immediately
 root = tk.Tk()
@@ -88,17 +89,20 @@ else:
 
 def ping_ip(ip_address):
     try:
-        # Set creationflags to CREATE_NO_WINDOW to suppress the console window
-        process = subprocess.run(["ping", "-n", "1", "-w", "1000", ip_address[0]],
-                                 capture_output=True, text=True, encoding='cp850',
-                                 timeout=2, creationflags=subprocess.CREATE_NO_WINDOW)
-        output = process.stdout
-        if "TTL=" in output:
-            return True, output
+        arp = ARP(pdst=ip_address[0])
+        ether = Ether(dst="ff:ff:ff:ff:ff:ff")
+        packet = ether/arp
+
+        result = srp(packet, timeout=2, verbose=0)[0]
+
+        # If the host is up, it should respond to the ARP request
+        # and the result should not be empty
+        if result:
+            return True, "Host is up"
         else:
-            return False, output
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-        return False, e.output if e.output else ""
+            return False, "No response"
+    except Exception as e:
+        return False, str(e)
 
 def create_image(color):
     # Create an image with given background color
@@ -217,7 +221,7 @@ def update_menu(icon, ip_address, last_change):
 
     return pystray.Menu(
         item('Update Interval', interval_menu()),
-        item(f'{ip_address[0]})', lambda: set_ip(icon, ip_address, running)),
+        item(lambda text: ip_address[0], lambda: set_ip(icon, ip_address, running)),  # Use a function to get the current IP address
         item('Exit', lambda: exit_program(icon, running))
     )
 
@@ -234,7 +238,7 @@ def exit_program(icon, running):
 
 
 if __name__ == "__main__":
-    ip_address = ['192.168.145.20']  
+    ip_address = ['192.168.146.56']  
     running = [True]
     last_change = [datetime.datetime.now()]
     try:
