@@ -20,6 +20,16 @@ PING_INTERVAL = 60  # Time between pings in seconds
 update_lock = threading.Lock() 
 interval_changed = threading.Event()  # Add this line
 
+def write_update_batch(exe_path, old_exe, new_exe):
+    batch_script = os.path.join(exe_path, "update.bat")
+    with open(batch_script, 'w') as bat:
+        bat.write(f'@echo off\n')
+        bat.write(f'timeout /t 5 /nobreak\n')
+        bat.write(f'del "{old_exe}"\n')
+        bat.write(f'rename "{new_exe}" "{os.path.basename(old_exe)}"\n')
+        bat.write(f'start "" "{os.path.basename(old_exe)}"\n')
+        bat.write(f'del "%~f0"&exit\n')
+    subprocess.Popen(batch_script, shell=True)
 
 def get_executable_path():
     return os.path.dirname(sys.executable)
@@ -107,16 +117,7 @@ def create_image(color):
     image = Image.new('RGB', (width, height), color)
     return image
 
-def write_update_batch(exe_path, old_exe, new_exe):
-    batch_script = os.path.join(exe_path, "update.bat")
-    with open(batch_script, 'w') as bat:
-        bat.write(f'@echo off\n')
-        bat.write(f'timeout /t 5 /nobreak\n')
-        bat.write(f'del "{old_exe}"\n')
-        bat.write(f'rename "{new_exe}" "{os.path.basename(old_exe)}"\n')
-        bat.write(f'start "" "{os.path.basename(old_exe)}"\n')
-        bat.write(f'del "%~f0"&exit\n')
-    subprocess.Popen(batch_script, shell=True)
+
 
 def flash_icon_blue(icon):
     with update_lock:
@@ -227,10 +228,20 @@ def get_elapsed_time(last_change):
     elapsed_seconds = int(elapsed_time.total_seconds() % 60)
     return f"{elapsed_minutes} min {elapsed_seconds} sec"
 
-def exit_program(icon, running):
+def exit_program(icon, running, update_thread=None, refresh_thread=None):
     running[0] = False  # Signal all threads to stop
     interval_changed.set()  # Trigger to break waiting in update_tray_icon
     icon.stop()  # Stop the icon
+
+    # Wait for threads to finish if they exist
+    if update_thread is not None:
+        update_thread.join()
+    if refresh_thread is not None:
+        refresh_thread.join()
+
+    # Now it's safe to execute the batch script for update
+    # (Place the batch script execution code here if needed)
+
 
 
 if __name__ == "__main__":
