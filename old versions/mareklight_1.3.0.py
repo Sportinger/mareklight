@@ -9,17 +9,19 @@ import time
 import datetime
 import requests
 import re
-import os  # Add this line
-import sys  # Add this line
+import os  #
+import sys  
 from scapy.all import ARP, Ether, srp
+
+current_version = '1.3.0'  
 
 # Create and hide the root window immediately
 root = tk.Tk()
 root.withdraw()
 
-PING_INTERVAL = 60  # Time between pings in seconds
+PING_INTERVAL = 60  
 update_lock = threading.Lock() 
-interval_changed = threading.Event()  # Add this line
+interval_changed = threading.Event()  
 
 
 def get_executable_path():
@@ -32,7 +34,6 @@ def get_latest_version(repo, current_version):
         files = response.json()
         if not isinstance(files, list):
             return None
-        # Assuming there is only one file in this directory
         if len(files) > 0:
             return files[0]['name'], files[0]['download_url']
     return None, None
@@ -69,9 +70,6 @@ def get_latest_file_info(repo):
             download_url = file_info['download_url']
             return file_name, download_url
     return None, None
-
-
-current_version = '1.3.0'  # Your current app version
 
 filename, download_url = get_latest_file_info(repo)
 if filename:
@@ -150,7 +148,6 @@ def update_tray_icon(icon, ip_address, running, last_change):
         # Clear the event after waking up
         interval_changed.clear()
 
-
 def set_ip(icon, ip_address, running):
     # Use the hidden root window for the dialog
     new_ip = simpledialog.askstring("Enter IP", "Enter new IP address:", parent=root, initialvalue=ip_address[0])
@@ -201,11 +198,6 @@ def refresh_menu(icon, ip_address, last_change, running):
             print(f"Elapsed Time: {elapsed_time_str}")  # Print the elapsed time
             icon.update_menu()  # Update the menu to reflect the new elapsed time
 
-
-
-
-
-
 def interval_menu():
     return pystray.Menu(
         item('1 sec', lambda: update_interval(1)),
@@ -235,7 +227,6 @@ def exit_program(icon, running):
     running[0] = False  # Signal all threads to stop
     interval_changed.set()  # Trigger to break waiting in update_tray_icon
     icon.stop()  # Stop the icon
-
 
 if __name__ == "__main__":
     ip_address = ['192.168.145.20']  
