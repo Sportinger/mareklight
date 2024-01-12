@@ -85,22 +85,18 @@ if filename:
 else:
     print("No files found in the latest directory.")
 
-def ping_ip(ip_address):
+import socket
+
+import socket
+
+def ping_ip():
+    netbios_name = "TON1.dts.local"
     try:
-        arp = ARP(pdst=ip_address[0])
-        ether = Ether(dst="ff:ff:ff:ff:ff:ff")
-        packet = ether/arp
-
-        result = srp(packet, timeout=2, verbose=0)[0]
-
-        # If the host is up, it should respond to the ARP request
-        # and the result should not be empty
-        if result:
-            return True, "Host is up"
-        else:
-            return False, "No response"
-    except Exception as e:
-        return False, str(e)
+        # Try to resolve the NetBIOS name to an IP address
+        ip_address = socket.gethostbyname(netbios_name)
+        return True, f"Host is up (resolved to {ip_address})"
+    except socket.gaierror:
+        return False, "Host is down (unable to resolve name)"
 
 def create_image(color):
     # Create an image with given background color
@@ -127,11 +123,13 @@ def flash_icon_blue(icon):
         time.sleep(0.5)
         icon.icon = original_icon
 
-def update_tray_icon(icon, ip_address, running, last_change):
+import datetime
+
+def update_tray_icon(icon, running, last_change, _=None):
     last_status = None
     while running[0]:
         flash_icon_blue(icon)
-        success, _ = ping_ip(ip_address)
+        success, _ = ping_ip()
         new_color = 'green' if success else 'red'
         
         current_status = new_color
@@ -141,7 +139,6 @@ def update_tray_icon(icon, ip_address, running, last_change):
         
         icon.icon = create_image(new_color)
         icon.update_menu()  # Trigger menu update to reflect new elapsed time
-        
         
         # Wait for the interval or until the event is set
         interval_changed.wait(PING_INTERVAL)
